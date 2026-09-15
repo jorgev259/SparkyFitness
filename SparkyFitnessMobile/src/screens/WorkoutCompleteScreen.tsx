@@ -4,6 +4,7 @@ import {
   Alert,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -49,6 +50,7 @@ import {
   buildPresetUpdateExercises,
   buildSessionDurationMinutes,
   buildWorkoutCompletionSummary,
+  buildWorkoutShareText,
   formatDuration,
   formatSetLoad,
   formatVolume,
@@ -593,6 +595,16 @@ function WorkoutCompleteScreen({ navigation, route }: Props) {
       });
     });
   };
+  const handleShare = () => {
+    void Share.share({
+      message: buildWorkoutShareText(
+        sessionForDetail,
+        weightUnit,
+        distanceUnit,
+        t
+      ),
+    });
+  };
   const handleDone = () => {
     navigation.navigate('Tabs', { screen: 'Diary' });
   };
@@ -938,6 +950,13 @@ function WorkoutCompleteScreen({ navigation, route }: Props) {
               defaultValue: 'View Workout',
             })}
             onPress={handleViewWorkout}
+          />
+          <DockedActionButton
+            icon="share"
+            label={t('workoutComplete.actions.share', {
+              defaultValue: 'Share',
+            })}
+            onPress={handleShare}
           />
         </View>
         <Button variant="primary" onPress={handleDone}>

@@ -18,6 +18,7 @@ import {
   buildPresetUpdateExercises,
   buildSessionExercisesPayload,
   buildSingleExerciseStartPayload,
+  buildWorkoutShareText,
   draftExerciseToCardExercise,
   presetExerciseToCardExercise,
   DEFAULT_REST_SEC,
@@ -5629,6 +5630,148 @@ describe('workoutSession', () => {
       expect(
         buildPresetUpdateExercises(session, preset, allCompleted(session))
       ).toBeNull();
+    });
+  });
+
+  describe('buildWorkoutShareText', () => {
+    type ShareExercise = PresetSession['exercises'][number];
+    type ShareSet = ShareExercise['sets'][number];
+
+    const snapshot = {
+      id: 'ex-1',
+      name: 'Goblet Squat',
+      category: 'Strength',
+      calories_per_hour: 300,
+      source: 'system',
+      images: [] as string[],
+    };
+
+    const makeSet = (overrides?: Partial<ShareSet>): ShareSet => ({
+      id: 101,
+      set_number: 1,
+      set_type: 'normal',
+      reps: 10,
+      weight: 60,
+      duration: null,
+      distance: null,
+      rest_time: 90,
+      notes: null,
+      rpe: null,
+      completed_at: null,
+      is_pr: false,
+      ...overrides,
+    });
+
+    const makeExercise = (
+      overrides?: Partial<ShareExercise>
+    ): ShareExercise => ({
+      id: 'entry-1',
+      exercise_id: 'ex-1',
+      duration_minutes: 20,
+      calories_burned: 150,
+      entry_date: '2026-03-20',
+      notes: null,
+      distance: null,
+      avg_heart_rate: null,
+      source: null,
+      superset_group: null,
+      exercise_snapshot: snapshot,
+      activity_details: [],
+      sets: [makeSet()],
+      ...overrides,
+    });
+
+    const share = (
+      session: PresetSession,
+      weightUnit: 'kg' | 'lbs' = 'kg',
+      distanceUnit: 'km' | 'miles' = 'km'
+    ) => buildWorkoutShareText(session, weightUnit, distanceUnit, i18n.t);
+
+    it('emits the date/preset line and one line per exercise', () => {
+      const session = makePreset({
+        name: 'Push Day',
+        exercises: [makeExercise()],
+      });
+      expect(share(session)).toBe(
+        '20-03-2026 (Push Day)\nGoblet Squat / 60kg 10'
+      );
+    });
+
+    it('appends base lines to the exercise name in parentheses', () => {
+      const deadlift = { ...snapshot, name: 'Deadlift' };
+      const session = makePreset({
+        exercises: [
+          makeExercise({ notes: 'base 10kgs' }),
+          makeExercise({
+            id: 'entry-2',
+            exercise_snapshot: deadlift,
+            notes: 'Base 20kgs',
+          }),
+        ],
+      });
+      expect(share(session)).toBe(
+        '20-03-2026 (Push Day)\nGoblet Squat (Base 10kgs) / 60kg 10\nDeadlift (Base 20kgs) / 60kg 10'
+      );
+    });
+
+    it('drops lines that start with "posicion", case- and accent-insensitive', () => {
+      const session = makePreset({
+        exercises: [
+          makeExercise({
+            notes:
+              'Posición inicial\nposicion media\nPOSICIÓN final\nbase 30kgs',
+          }),
+        ],
+      });
+      expect(share(session)).toBe(
+        '20-03-2026 (Push Day)\nGoblet Squat (Base 30kgs) / 60kg 10'
+      );
+    });
+
+    it('appends multiple base lines as separate parenthetical groups', () => {
+      const session = makePreset({
+        exercises: [makeExercise({ notes: 'base 5kgs\nbase 10kgs' })],
+      });
+      expect(share(session)).toBe(
+        '20-03-2026 (Push Day)\nGoblet Squat (Base 5kgs) (Base 10kgs) / 60kg 10'
+      );
+    });
+
+    it('collects unmatched lines as observations prefixed by the exercise name', () => {
+      const deadlift = { ...snapshot, name: 'Deadlift' };
+      const session = makePreset({
+        exercises: [
+          makeExercise({
+            notes: 'felt strong today\ncramped near the end',
+          }),
+          makeExercise({
+            id: 'entry-2',
+            exercise_snapshot: deadlift,
+            notes: 'lower back a bit tight',
+          }),
+        ],
+      });
+      expect(share(session)).toBe(
+        '20-03-2026 (Push Day)\nGoblet Squat / 60kg 10\nDeadlift / 60kg 10\n\n(Goblet Squat) felt strong today\n(Goblet Squat) cramped near the end\n(Deadlift) lower back a bit tight'
+      );
+    });
+
+    it('separates observations from the exercise list with a blank line', () => {
+      const session = makePreset({
+        exercises: [makeExercise({ notes: 'base 10kgs\nhips rising' })],
+      });
+      expect(share(session)).toBe(
+        '20-03-2026 (Push Day)\nGoblet Squat (Base 10kgs) / 60kg 10\n\n(Goblet Squat) hips rising'
+      );
+    });
+
+    it('omits the trailing observations block when there are none', () => {
+      const session = makePreset({
+        exercises: [makeExercise({ notes: 'base 10kgs' })],
+      });
+      expect(share(session)).toBe(
+        '20-03-2026 (Push Day)\nGoblet Squat (Base 10kgs) / 60kg 10'
+      );
     });
   });
 });
