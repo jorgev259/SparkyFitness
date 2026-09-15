@@ -6,7 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Share } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, { LinearTransition } from 'react-native-reanimated';
@@ -35,6 +35,7 @@ import {
   formatVolume,
   canReorderDraftExercises,
   exerciseFromSnapshot,
+  buildWorkoutShareText,
 } from '../utils/workoutSession';
 import { formatLocalizedNumber } from '../localization';
 import {
@@ -399,6 +400,18 @@ const WorkoutDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     });
   }, [navigation, session]);
 
+  // Placeholder share: hands a plain-text session summary to the OS share sheet.
+  const handleShare = useCallback(() => {
+    void Share.share({
+      message: buildWorkoutShareText(
+        session,
+        weightUnit as 'kg' | 'lbs',
+        distanceUnit as 'km' | 'miles',
+        t
+      ),
+    });
+  }, [session, weightUnit, distanceUnit, t]);
+
   const openExerciseSearch = () => {
     // Plain Add: drop any pending replace target so a cancelled replace can't
     // misroute this add.
@@ -709,6 +722,17 @@ const WorkoutDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     }),
     identifier: 'workout-detail-save-as-preset',
   };
+  const shareHeaderItem: HeaderItem = {
+    kind: 'icon',
+    sfSymbol: 'square.and.arrow.up',
+    ionicon: 'share-outline',
+    role: 'secondary',
+    onPress: handleShare,
+    accessibilityLabel: t('workoutDetail.accessibility.share', {
+      defaultValue: 'Share workout',
+    }),
+    identifier: 'workout-detail-share',
+  };
 
   // Small inline native title (set in App.tsx as a small title so re-applying it
   // for the edit-mode swap updates in place rather than flying in a large one).
@@ -742,6 +766,7 @@ const WorkoutDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       : canEdit
         ? [
             saveAsPresetHeaderItem,
+            shareHeaderItem,
             {
               kind: 'text',
               label: t('common.edit', { defaultValue: 'Edit' }),
@@ -753,7 +778,7 @@ const WorkoutDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               identifier: 'workout-detail-edit',
             },
           ]
-        : saveAsPresetHeaderItem,
+        : [saveAsPresetHeaderItem, shareHeaderItem],
   });
 
   // Native-header mode: the glass header (above) replaces the custom header,

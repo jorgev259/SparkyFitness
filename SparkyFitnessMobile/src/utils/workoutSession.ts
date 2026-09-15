@@ -1544,6 +1544,121 @@ export function buildWorkoutCompletionSummary(
   };
 }
 
+/**
+ * Lowercase a note line with diacritics stripped, so prefix matching is both
+ * case- and accent-insensitive (e.g. "Posición" matches "posicion").
+ */
+function normalizeNoteLine(line: string): string {
+  return line
+    .trim()
+    .toLocaleLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Plain-text workout summary for the OS share sheet. First line is the session
+ * date and preset name ("14-09-2026 (Push Day)"), then one line per exercise:
+ * "Goblet Squat / 24kg 12-8-8-8". Weights, durations, and distances collapse
+ * consecutive repeats (a run of the same value shows once); reps list every set.
+ *
+ * Each exercise's note is parsed line by line: lines starting with "posicion"
+ * (case- and accent-insensitive) are dropped, lines starting with "base"
+ * (case-insensitive) are appended to the exercise name in parentheses ("Goblet
+ * Squat (Base 10kgs)"), and every other line becomes an observation. The
+ * observations are appended after the exercise list, separated by a blank line
+ * and prefixed by the exercise name in parentheses.
+ */
+export function buildWorkoutShareText(
+  session: PresetSessionResponse,
+  weightUnit: 'kg' | 'lbs',
+  distanceUnit: 'km' | 'miles',
+  t: TFunction
+): string {
+  const [year, month, day] = (session.entry_date ?? '')
+    .split('T')[0]
+    .split('-');
+  const dateLine =
+    year && month && day
+      ? `${day}-${month}-${year} (${session.name})`
+      : session.name;
+  const lines: string[] = [dateLine];
+  const observations: string[] = [];
+  for (const exercise of session.exercises) {
+    const name =
+      exercise.exercise_snapshot?.name ??
+      t('workout.exercise', { defaultValue: 'Exercise' });
+    const baseFragments: string[] = [];
+    for (const rawLine of (exercise.notes ?? '').split('\n')) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const normalized = normalizeNoteLine(line);
+      if (normalized.startsWith('posicion')) continue;
+      if (normalized.startsWith('base')) {
+        baseFragments.push(line.charAt(0).toUpperCase() + line.slice(1));
+        continue;
+      }
+      observations.push(`(${name}) ${line}`);
+    }
+    const displayName =
+      baseFragments.length > 0
+        ? `${name} (${baseFragments.join(') (')})`
+        : name;
+    const weights: string[] = [];
+    const reps: string[] = [];
+    const durations: string[] = [];
+    const distances: string[] = [];
+    let lastWeight: string | null = null;
+    let lastDuration: string | null = null;
+    let lastDistance: string | null = null;
+    for (const set of exercise.sets) {
+      if (set.weight != null) {
+        const w = `${formatLocalizedNumber(
+          weightFromKg(set.weight, weightUnit),
+          { maximumFractionDigits: 1 }
+        )}${weightUnit}`;
+        if (w !== lastWeight) {
+          weights.push(w);
+          lastWeight = w;
+        }
+      }
+      if (set.reps != null) reps.push(String(set.reps));
+      if (set.duration != null) {
+        const d = formatDurationSeconds(set.duration);
+        if (d !== lastDuration) {
+          durations.push(d);
+          lastDuration = d;
+        }
+      }
+      if (set.distance != null) {
+        const ds = `${formatLocalizedNumber(
+          distanceFromKm(set.distance, distanceUnit),
+          { maximumFractionDigits: 2 }
+        )} ${distanceUnit === 'miles' ? 'mi' : 'km'}`;
+        if (ds !== lastDistance) {
+          distances.push(ds);
+          lastDistance = ds;
+        }
+      }
+    }
+    const segments: string[] = [];
+    if (weights.length > 0) segments.push(weights.join('-'));
+    if (reps.length > 0) segments.push(reps.join('-'));
+    if (durations.length > 0) segments.push(durations.join('-'));
+    if (distances.length > 0) segments.push(distances.join('-'));
+    lines.push(
+      segments.length > 0
+        ? `${displayName} / ${segments.join(' ')}`
+        : displayName
+    );
+  }
+  if (observations.length > 0) {
+    lines.push('');
+    lines.push(...observations);
+  }
+  return lines.join('\n');
+}
+
 // --- Live-start payload builders ---
 
 /**
