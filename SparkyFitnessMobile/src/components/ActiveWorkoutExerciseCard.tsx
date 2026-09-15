@@ -30,6 +30,7 @@ import CardioEffortForm from './CardioEffortForm';
 import WorkoutNotesField from './WorkoutNotesField';
 import { measureAnchoredMenuTrigger, type AnchorRect } from './AnchoredMenu';
 import { useExerciseStats } from '../hooks/useExerciseStats';
+import { useExerciseLastNote } from '../hooks/useExerciseLastNote';
 import type { GetImageSource } from '../hooks/useExerciseImageSource';
 import { distanceFromKm, weightFromKg } from '../utils/unitConversions';
 import { formatLocalizedNumber } from '../localization';
@@ -330,6 +331,14 @@ function ActiveWorkoutExerciseCard({
   );
   const lastSet = stats?.lastSet ?? null;
   const bestSet = stats?.bestSet ?? null;
+
+  // Read-only carry-over hint: while the Notes editor is open on an exercise
+  // without a note yet, lazily surface the newest note this exercise last saw.
+  // Gated to the live workout (the edit/view forms have their own context).
+  const { data: lastSessionNote } = useExerciseLastNote(
+    exercise.exercise_id,
+    isLive && noteEditorOpen && !exercise.notes && exercise.exercise_id != null
+  );
 
   // PREVIOUS column source: the most recent prior session's sets, matched to
   // the current rows by position (Hevy-style). Older servers omit
@@ -739,20 +748,28 @@ function ActiveWorkoutExerciseCard({
         {!readOnly &&
           onCommitExerciseNote != null &&
           (!!exercise.notes || noteEditorOpen) && (
-            <View className="mt-2 px-1">
-              <WorkoutNotesField
-                value={exercise.notes}
-                onCommit={(text) => onCommitExerciseNote(exercise.id, text)}
-                label=""
-                placeholder={t('activeWorkout.exercise.notePlaceholder', {
-                  defaultValue: 'Add a note for this exercise…',
-                })}
-                accessibilityLabel={t('activeWorkout.exercise.notesFor', {
-                  defaultValue: 'Notes for {{name}}',
-                  name,
-                })}
-              />
-            </View>
+            <>
+              <View className="mt-2 px-1">
+                <WorkoutNotesField
+                  /* Carry-over with an editable draft: an empty current note
+                      is pre-seeded with the newest note this exercise last saw,
+                      surfaced through the same lazy history lookup useExerciseLastNote
+                      performs. The field re-seeds whenever the value changes and the
+                      draft is committed on blur, so the carried text lands as the
+                      user's own note the moment they (or an autosave) commit it. */
+                  value={exercise.notes ?? lastSessionNote ?? ''}
+                  onCommit={(text) => onCommitExerciseNote(exercise.id, text)}
+                  label=""
+                  placeholder={t('activeWorkout.exercise.notePlaceholder', {
+                    defaultValue: 'Add a note for this exercise…',
+                  })}
+                  accessibilityLabel={t('activeWorkout.exercise.notesFor', {
+                    defaultValue: 'Notes for {{name}}',
+                    name,
+                  })}
+                />
+              </View>
+            </>
           )}
         {readOnly && !!exercise.notes && (
           <View className="mt-2 px-1">
