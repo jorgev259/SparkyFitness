@@ -173,6 +173,10 @@ export const exerciseHistoryForExerciseQueryKey = (exerciseId: string) =>
 
 export const exerciseHistoryResetQueryKey = ['exerciseHistoryReset'] as const;
 
+/** Newest non-empty per-exercise note, for the live carry-over hint. */
+export const exerciseLastNoteQueryKey = (exerciseId: string) =>
+  ['exerciseLastNote', exerciseId] as const;
+
 export const exerciseStatsQueryKeyRoot = ['exerciseStats'] as const;
 
 export const exerciseStatsQueryKey = (

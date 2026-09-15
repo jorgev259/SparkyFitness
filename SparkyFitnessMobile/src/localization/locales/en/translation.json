@@ -362,6 +362,7 @@
       "moreOptions": "More options for {{name}}",
       "notePlaceholder": "Add a note for this exercise…",
       "notesFor": "Notes for {{name}}",
+      "lastSessionNoteHint": "Last session: {{note}}",
       "caloriesFor": "Calories burned for {{name}}",
       "editCaloriesFor": "Edit calories burned for {{name}}",
       "best": "Best {{value}}",
