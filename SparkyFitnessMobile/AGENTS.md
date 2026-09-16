@@ -257,6 +257,8 @@ npx expo prebuild --clean
 
 ## Widgets And Native Config
 
+- The app name `SparkyFitness (Chito)` and the 6 RGB-inverted logo surfaces (`adaptiveicon.png`, `appicon.icon/Assets/Asset {1,2,3}.png`, `logo.png`, `logo@2x.png`) are deliberate Chito-build identity. An upstream `assets/` sync or `npx expo prebuild --clean` regenerates/overwrites those PNGs from mainstream; re-apply RGB-only `-negate` (ImageMagick `-channel RGB -negate`) after any such regeneration. The Android display name also comes from prebuild regenerating from `name:` — no config plugin is involved.
+
 - iOS widgets live under `targets/widget/`, share data through the app group from `app.identifiers.js`, and reload through `ExtensionStorage` in `useWidgetSync`.
 - Current iOS widgets are calorie and macro widgets. When changing display, update Swift views, shared helpers, TS snapshot shape, and reload kind handling together.
 - Widget string keys are derived from the Swift sources, not tracked by hand: `__tests__/config/helpers/widgetSwiftKeys.ts` discovers every `.swift` file under `targets/widget/` (recursively) and extracts the literal keys passed to `localizedWidgetString`, `configurationDisplayName` and `.description`. A new key must therefore be added to `targets/widget/en.lproj/Localizable.strings`, and — for `localizedWidgetString` keys — to the `fallbackWidgetString` map, or the contract tests fail. Target-language files stay optional and fall back to EN.
